@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.mybatis.common.user.mapper.UserMapper">
+	<!-- ehcache已经配置好了,然后只需要在想要缓存的mapper配置文件里面加入以下内容, -->
+	<!-- 该查询语句得到的结果将会被缓存 以下两个<cache>标签都可以,第一个可以输出日志,第二个不输出日志 -->
+	<!-- <cache type="org.mybatis.caches.ehcache.LoggingEhcache"/> -->
+	<!-- <cache type="org.mybatis.caches.ehcache.EhcacheCache">
+			<property name="timeToIdleSeconds" value="3600"/>
+			<property name="timeToLiveSeconds" value="3600"/>
+			同ehcache参数maxElementsInMemory 
+			<property name="maxEntriesLocalHeap"value="1000"/>
+			同ehcache参数maxElementsOnDisk 
+			<property name="maxEntriesLocalDisk" value="10000000"/>
+			<property name="memoryStoreEvictionPolicy" value="LRU"/>
+	</cache> -->
+	<!-- Mybatis默认二级缓存 -->
+	<!-- <cache eviction="FIFO" flushInterval="60000" size="512"
+		readOnly="true" /> -->
+	<!-- 这个更高级的配置创建了一个 FIFO 缓存,并每隔 60 秒刷新,存数结果对象或列表的 512 个引用, -->
+	<!-- 而且返回的对象被认为是只读的,因此在不同线程中的调用者之间修改它们会导致冲突。 -->
+	
+	<cache eviction="FIFO" flushInterval="600000" size="1024" readOnly="true"
+		type="com.mybatis.redis.MybatisRedisCacheWithJredis" />
+
+	<!-- 自定义返回结果集 -->
+	<resultMap id="userMap" type="user">
+		<id property="id" column="id" jdbcType="INTEGER" />
+		<result property="username" column="username" javaType="String"
+			jdbcType="VARCHAR"></result>
+		<result property="password" column="password" javaType="String"
+			jdbcType="VARCHAR"></result>
+		<result property="salt" column="salt" javaType="String"
+			jdbcType="VARCHAR"></result>
+		<result property="sex" column="sex" javaType="Short"
+			jdbcType="INTEGER"></result>
+		<result property="address" column="address" javaType="Address"
+			jdbcType="VARCHAR"></result>
+		<result property="cellphone" column="cellphone"
+			javaType="String" jdbcType="VARCHAR"></result>
+		<result property="email" column="email" javaType="String"
+			jdbcType="VARCHAR"></result>
+		<association property="gender" javaType="KeyAndValue">
+			<!-- 注意：映射中的每一层都要指定主键，否则会发生无法distinct去重的情况； -->
+			<!-- 且一定不能有重名的id主键。 所以子查询中的主键，都另起了一个别名。 -->
+			<id property="key" column="keyNo" jdbcType="INTEGER" />
+			<result property="value" column="value" javaType="String"
+				jdbcType="VARCHAR" />
+		</association>
+		<!-- <association property="gender" resultMap="keyMap"/> -->
+		<!-- 下面的方法有N+1问题 -->
+		<!-- <association property="user" javaType="User" column="create_userid" 
+			select="getUser" /> -->
+
+		<!-- 如果两表联查，主表和明细表的主键都是id的话，明细表的多条只能查询出来第一条。 -->
+		<!-- 解决办法：在SQL中加上order_detail.id as detail_id，定义一个别名 -->
+		<!-- <id column="detail_id" property="id" /> -->
+		<!-- 再把<id column="id" property="id" /> -->
+		<!-- 改为<id column="detail_id" property="id" /> -->
+		<collection property="articleList" ofType="Article"
+			javaType="list" resultMap="articleMap">
+		</collection>
+	</resultMap>
+
+	<resultMap id="articleMap" type="Article">
+		<id property="userId" column="userId" jdbcType="INTEGER" />
+		<result property="name" column="name" javaType="String"
+			jdbcType="VARCHAR"></result>
+	</resultMap>
+
+	<!-- <resultMap id="articleMap" type="user"> <result property="username" 
+		column="username" javaType="String" jdbcType="VARCHAR"></result> <collection 
+		property="articleList" ofType="Article" javaType="list"> <id property="userId" 
+		column="userId" jdbcType="INTEGER" /> <result property="name" column="name" 
+		javaType="String" jdbcType="VARCHAR"></result> </collection> </resultMap> -->
+
+	<resultMap id="keyMap" type="KeyAndValue">
+		<id property="key" column="keyNo" jdbcType="INTEGER" />
+		<result property="value" column="value" javaType="String"
+			jdbcType="VARCHAR"></result>
+	</resultMap>
+
+	<!-- useGeneratedKeys 取值范围true|false 默认值是：false。 含义：设置是否使用JDBC的getGenereatedKeys方法(如：Mysql自增) 
+		获取主键并赋值到keyProperty设置的模型属性中 -->
+	<!-- #{}：表示一个占位符，用来接收输入参数的。 -->
+	<!-- 下面的说明是必须的 #{address, jdbcType=VARCHAR, javaType=Address} -->
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id">
+		insert
+		into user (username,password,salt,sex,address,cellphone,email) values
+		(#{username},#{password},#{salt},#{sex},#{address, jdbcType=VARCHAR,
+		javaType=Address},#{cellphone},#{email})
+	</insert>
+
+	<update id="update">
+		update user set
+		username=#{username},password=#{password},salt=#{salt},sex=#{sex},address=#{address,
+		jdbcType=VARCHAR, javaType=Address},
+		cellphone=#{cellphone},email=#{email}
+		where id=#{id}
+	</update>
+
+	<delete id="delete" parameterType="int">
+		delete from user where
+		id=#{id}
+	</delete>
+
+	<select id="selectById" parameterType="int" resultMap="userMap"
+		useCache="true">
+		select *
+		from user u, keyMap k where u.sex = k.keyNo and
+		u.id=#{id}
+	</select>
+
+	<select id="selectByIdList" parameterType="List"
+		resultMap="userMap">
+		select * from user
+		where id in
+		<if test="idList!=null">
+			<foreach collection="idList" index="key" item="value"
+				open="(" close=")" separator=",">
+				<!-- 遍历拼接的串 -->
+				#{value}
+			</foreach>
+		</if>
+	</select>
+
+	<select id="findByName" parameterType="String"
+		resultMap="userMap">
+		<!-- <bind name="likestr" value="'%'+ searchkey +'%'"></bind> -->
+		select * from user where username like CONCAT('%',
+		#{searchkey}, '%')
+	</select>
+
+	<select id="selectAll" resultMap="userMap">
+		select * from user
+	</select>
+
+	<select id="selectUserAndBook" resultMap="userMap">
+		select u.username,
+		a.name from user u, article a where u.salt = a.userId and u.id=#{id}
+	</select>
+
+	<select id="searchByIdMinAndMax" parameterType="Map"
+		resultMap="userMap">
+		<![CDATA[select * from user where id >= #{minId} and id <= #{maxId} ]]>
+	</select>
+
+	<select id="searchByInnerClassProperties" parameterType="user"
+		resultMap="userMap">
+		select * from user where address =
+		CONCAT(#{address.province}, ',', #{address.city})
+	</select>
+</mapper>

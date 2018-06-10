@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mybatis.common.user.mapper.ArticleMapper">
+	<resultMap id="BaseResultMap" type="Article">
+		<id column="userId" jdbcType="INTEGER" property="userid" />
+		<result column="name" jdbcType="VARCHAR" property="name" />
+	</resultMap>
+	<sql id="Base_Column_List">
+		userId, name
+	</sql>
+	<select id="selectByPrimaryKey"
+		parameterType="java.lang.Integer" resultMap="BaseResultMap">
+		select
+		<include refid="Base_Column_List" />
+		from article
+		where userId = #{userid,jdbcType=INTEGER}
+	</select>
+	<delete id="deleteByPrimaryKey"
+		parameterType="java.lang.Integer">
+		delete from article
+		where userId = #{userid,jdbcType=INTEGER}
+	</delete>
+	<insert id="insert" parameterType="Article">
+		insert into article (userId, name)
+		values (#{userid,jdbcType=INTEGER}, #{name,jdbcType=VARCHAR})
+	</insert>
+	<insert id="insertSelective" parameterType="Article">
+		insert into article
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="userid != null">
+				userId,
+			</if>
+			<if test="name != null">
+				name,
+			</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="userid != null">
+				#{userid,jdbcType=INTEGER},
+			</if>
+			<if test="name != null">
+				#{name,jdbcType=VARCHAR},
+			</if>
+		</trim>
+	</insert>
+	<update id="updateByPrimaryKeySelective" parameterType="Article">
+		update article
+		<set>
+			<if test="name != null">
+				name = #{name,jdbcType=VARCHAR},
+			</if>
+		</set>
+		where userId = #{userid,jdbcType=INTEGER}
+	</update>
+	<update id="updateByPrimaryKey" parameterType="Article">
+		update article
+		set name = #{name,jdbcType=VARCHAR}
+		where userId = #{userid,jdbcType=INTEGER}
+	</update>
+</mapper>
